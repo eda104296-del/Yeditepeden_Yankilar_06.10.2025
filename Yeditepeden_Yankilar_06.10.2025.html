@@ -1,0 +1,2544 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>MapLibre - Toggle Marker & Rota & Renkler</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://unpkg.com/maplibre-gl/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/maplibre-gl/dist/maplibre-gl.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+  
+  <style>
+    body { margin:0; padding:0; }
+    #map { position:absolute; top:0; bottom:0; width:100%; }
+    
+    .custom-marker {
+      width: 80px; height: 60px;
+      background-size: contain; background-repeat: no-repeat; background-position: center;
+      cursor: pointer;
+    }
+    .img-marker {
+      width: 100px; height: 100px;
+      background-size: contain; background-repeat: no-repeat; background-position: center;
+      cursor: pointer;
+    }
+    #toggleMarkerBtn {
+      position: absolute; top: 10px; left: 10px; z-index: 10;
+      padding: 10px 15px; background: white; border: 1px solid #ccc;
+      cursor: pointer; font-weight: bold;
+    }
+    /* Popup stil */
+    .maplibregl-popup.safiye-popup .maplibregl-popup-content {
+      background: transparent !important;
+      box-shadow: none !important;
+      border: none !important;
+      padding: 0 !important;
+    }
+    .safiye-img {
+      width: 750px;
+      border: 0px solid #fff;
+      border-radius: 2px;
+      box-shadow: 0 0px 0px rgba(0,0,0,0);
+      display: block;
+    }
+    .popup-bubble {
+  background: #fff;              /* beyaz arka plan */
+  border-radius: 10px;           /* yuvarlatılmış köşeler */
+  padding: 10px 14px;
+  font-family: Tahoma;
+  font-size: 14px;
+  color: #000;                   /* siyah yazı */
+  line-height: 1.4;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15); /* hafif gölge */
+  text-align: left;
+  position: relative;
+}
+.maplibregl-popup-content {
+  max-width: none !important;   /* varsayılan sınırı kaldır */
+  width: auto !important;       /* otomatik genişle */
+}
+
+.text-box {
+  text-align: center;
+  width: 480px;                 /* artık sabit genişlik verebilirsin */
+  padding: 18px 22px;
+}
+
+.text-box h3 {
+  font-family: Tahoma;
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+}
+
+.text-box .text-body p {
+  margin: 4px 0;
+  font-family: Tahoma;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #444;
+}
+
+/* küçük üçgen (konuşma balonu kuyruğu) */
+.popup-bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -10px;   /* balonun altına */
+  left: 20px;      /* sola hizalı */
+  border-width: 10px;
+  border-style: solid;
+  border-color: #fff transparent transparent transparent;
+}
+    .popup-btn {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 6px 12px;
+  background: #f8c7d8;   /* pembe arka plan */
+  border: none;
+  border-radius: 6px;
+  font-family: Tahoma;
+  font-size: 14px;
+  cursor: pointer;
+  color: #000;   /* yazı ve ok SİYAH */
+}
+#map-loader {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  opacity: 1;
+  transition: opacity 0.5s ease;
+  background: #FDE5EC;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  font-family: Tahoma;
+  font-size: 22px;
+  font-weight: bold;
+  color: #b61767; /* ana yazı rengi */
+
+  /* 👇 Halo/Kontür */
+  -webkit-text-stroke: 10px rgba(255,255,255,0.8); /* kalın beyaz kontür */
+  paint-order: stroke fill; /* önce kontürü sonra yazıyı boyar */
+
+  /* 👇 Hafif blur (halo efekti) */
+  text-shadow: 0 0 6px rgba(255,255,255,0.6);
+}
+
+#map-loader.hidden {
+  display: none !important;
+  z-index: -1;
+}
+
+
+
+
+  </style>
+</head>
+<body>
+   <div id="map-loader">
+    <div class="loader-box">Yeditepeden Yankılar Başlıyor...</div>
+  </div>
+<div id="map"></div>
+<button id="toggle679Btn" style="
+  position: absolute;
+  top: 50px;  /* 677'nin altına gelsin */
+  left: 10px;
+  z-index: 10;
+  padding: 10px 15px;
+  background: white;
+  border: 1px solid #ccc;
+  cursor: pointer;
+  font-weight: bold;
+">679</button>
+<button id="toggle683Btn" style="
+  position: absolute;
+  top: 90px;  /* 679'un altına gelsin */
+  left: 10px;
+  z-index: 10;
+  padding: 10px 15px;
+  background: white;
+  border: 1px solid #ccc;
+  cursor: pointer;
+  font-weight: bold;
+">683</button>
+
+
+<button id="toggleMarkerBtn">677</button>
+<button id="gotoDoganBtn" style="
+    display:none;
+    position:absolute;
+    bottom:20px;
+    left:50%;
+    transform:translateX(-50%);
+    padding:10px 20px;
+    background:#f8c7d8;
+    border:none;
+    border-radius:8px;
+    font-family:Tahoma;
+    font-size:14px;
+    cursor:pointer;
+    z-index:999;
+  ">
+    &#10140 Doğan Nadi'nin Evine Git
+  </button>
+<script>
+//AÇILIŞ 
+var map = new maplibregl.Map({
+  container: 'map',
+  style: "https://api.maptiler.com/maps/basic/style.json?key=A3v8D9mK8QJCgIoXONJO",
+  center: [29.098650973228278, 41.08834362302684],
+  zoom: 9
+});
+ map.on("load", function() {
+  setTimeout(() => {
+    document.getElementById("map-loader").classList.add("hidden");
+  }, 1000);
+});
+
+//İÇERİK
+map.on('load', function () {  
+
+  // --- ROTA ---
+  var route = {
+    "type":"Feature",
+    "geometry":{
+      "type":"LineString",
+      "coordinates":[
+        [28.994386920347367, 41.035754640900606],
+        [28.995, 41.026],
+        [29.004129556278002, 41.021079090494595],
+        [29.002, 41.030],
+        [28.99462219702901, 41.03589415139829],
+        [29.025, 41.055],
+        [29.054364649017444, 41.085611023292714],
+        [29.042, 41.08],
+        [29.03100344616302, 41.08084602840681]
+      ]
+    }
+  };
+  var smoothRoute = turf.bezierSpline(route);
+  map.addSource('route', { type:'geojson', data: smoothRoute });
+
+  map.addLayer({
+    'id':'route-line',
+    'type':'line',
+    'source':'route',
+    'layout':{ 'visibility':'none' },
+    'paint':{ 'line-color':'#FF69B4','line-width':3,'line-dasharray':[2,2] }
+  });
+
+  map.addLayer({
+    'id':'route-line-thin',
+    'type':'line',
+    'source':'route',
+    'layout':{ 'visibility':'visible' },
+    'paint':{ 'line-color':'#FF69B4','line-width':1,'line-dasharray':[2,2] }
+  });
+
+// --- PROGRAM BAŞLANGICI ---
+const startEl = document.createElement('div');
+startEl.style.width = "40px";
+startEl.style.height = "40px";
+startEl.style.backgroundImage = "url('https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/destination_6194819.png')";
+startEl.style.backgroundSize = "contain";
+startEl.style.position = "relative"; 
+startEl.style.cursor = "pointer";
+
+                                                 // yazı etiketi
+const label = document.createElement('div');
+label.innerText = "Program Başlangıcı";
+label.style.position = "absolute";
+label.style.bottom = "50px";             
+label.style.left = "50%";                
+label.style.transform = "translateX(-50%)";
+label.style.fontFamily = "Tahoma";
+label.style.fontSize = "12px";
+label.style.fontWeight = "bold";
+label.style.color = "#31242b";
+label.style.whiteSpace = "nowrap";       
+label.style.backgroundColor = "#ec91bf"; 
+label.style.padding = "2px 4px";         
+label.style.borderRadius = "2px";        
+startEl.appendChild(label);
+
+const startMarker = new maplibregl.Marker({ element: startEl })
+  .setLngLat([28.994386920347367, 41.035754640900606]);
+
+startEl.addEventListener('click', () => {
+  map.flyTo({ center: [28.9978149425426, 41.02768658500497], zoom: 14, speed: 0.8, curve: 1.2 });
+  setTimeout(() => { ferryMarker.togglePopup(); }, 1200);
+});
+
+  // --- FERİBOT ---
+  var ferryEl = document.createElement('div');
+  ferryEl.className = 'custom-marker';
+  ferryEl.style.backgroundImage = "url('https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/ferry-boat.png')";
+  ferryEl.style.width = "100px"; ferryEl.style.height = "60px";
+
+  const ferryAudio1 = new Audio("https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/water-splashes-from-a-ferry-23141.mp3");
+  const ferryAudio2 = new Audio("https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/boat-horn-6204.mp3");
+  ferryAudio1.loop = true; ferryAudio2.loop = true;
+
+ const ferryPopup = new maplibregl.Popup({ 
+  closeButton: true, 
+  closeOnClick: true,
+  className:"safiye-popup",
+  offset: [50, 40]  
+})
+.setHTML(`
+  <div class="popup-bubble text-box" style="width:300px; padding:14px 18px; font-size:13px; line-height:1.4; text-align:justify;">
+  <p><b>Baki Süha Edipoğlu:</b></p>
+
+  <p>Deniz yollarının lütfettiği Rima motoruyla geldik Kız Kulesine.</p>
+  <p><b>Kız Kulesi küçücük bir nokta fakat kulenin içi bayağı büyük, genişçe bir evi andırıyor.</b></p>
+  <p>4 odası var. Rahat rahat odalar, tavanlar yüksek. İki odayı yatak ve oturma odası olarak kullanıyorlar Talat’la Fatma Hanım.</p>
+  <p>Diğer tarafta 2 oda daha var bu tarafta. Kulenin Marmara’ya bakan kısmında 2 büyük oda, burayı da depo olarak kullanıyorlar.</p>
+  <p>Bir tanesinde erzakları var. Halatlar, diğer tarafta çirozlar, gıda maddeleri, zeytinyağı filan.</p>
+
+  <button id="gotoKizkulesi" class="popup-btn">&#10140; Kız Kulesi'ne Git</button>
+</div>
+`);
+
+                                    //Feribot açılış mantığı
+ ferryPopup.on('open', () => {
+  ferryAudio1.play();
+  ferryAudio2.play();
+  document.getElementById('gotoKizkulesi').addEventListener('click', () => {
+    ferryPopup.remove();
+    map.flyTo({ center: [29.014129556278002, 41.021079090494595], zoom: 14, speed: 0.8, curve: 1.2 });
+    map.once("moveend", () => {
+      closeAllPopups();
+      kizkulesiMarker.addTo(map).togglePopup();
+    });
+  });
+});
+ferryPopup.on('close', () => { 
+  ferryAudio1.pause(); ferryAudio1.currentTime=0; 
+  ferryAudio2.pause(); ferryAudio2.currentTime=0; 
+});
+
+                                        //Feribot animasyon
+  var ferryMarker = new maplibregl.Marker({ element: ferryEl })
+    .setLngLat([28.994386920347367, 41.035754640900606])
+    .setPopup(ferryPopup);
+  ferryEl.addEventListener('click', () => { ferryAudio1.play(); ferryAudio2.play(); });
+  ferryPopup.on('close', () => { ferryAudio1.pause(); ferryAudio1.currentTime=0; ferryAudio2.pause(); ferryAudio2.currentTime=0; });
+
+  var ferryStart = [28.994386920347367, 41.035754640900606];
+  var ferryEnd   = [29.004129556278002, 41.021079090494595];
+  var ferryProgress = 0, ferryDirection = 1, ferrySpeed = 0.0015;
+  var ferryAnimate = false;
+  function animateFerry() {
+    if (ferryAnimate) {
+      ferryProgress += ferryDirection * ferrySpeed;
+      if (ferryProgress >= 1) { ferryProgress = 1; ferryDirection = -1; }
+      if (ferryProgress <= 0) { ferryProgress = 0; ferryDirection = 1; }
+      var lng = ferryStart[0] + (ferryEnd[0] - ferryStart[0]) * ferryProgress;
+      var lat = ferryStart[1] + (ferryEnd[1] - ferryStart[1]) * ferryProgress;
+      ferryMarker.setLngLat([lng, lat]);
+    }
+    requestAnimationFrame(animateFerry);
+  }
+  animateFerry();
+
+  // --- KIZ KULESİ ---
+  const kizkulesiEl = document.createElement('div');
+  kizkulesiEl.className = 'img-marker';
+  kizkulesiEl.style.backgroundImage = "url('https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/K%C4%B1z%20Kulesi.png')";
+  const kizkulesiPopup = new maplibregl.Popup({ 
+  closeButton:true, 
+  closeOnClick:true, 
+  className:"safiye-popup",
+  offset:[150,-300]   
+})
+.setHTML(`
+  <div style="max-width:300px;">
+    <img class="safiye-img" src="https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/K%C4%B1z%20Kulesi%20Kolaj.png">
+    <button id="gotoWoman" class="popup-btn">&#10140 Salacak'a Git</button>
+  </div>
+`);
+
+  kizkulesiPopup.on('open', () => {
+  document.getElementById('gotoWoman').addEventListener('click', () => {
+    kizkulesiPopup.remove();
+    map.flyTo({
+      center:[29.0067,41.0212],
+      zoom:17,   
+      speed:0.8,
+      curve:1.2
+    });
+
+map.once("moveend", () => {
+  closeAllPopups();         
+  marker.addTo(map).togglePopup(); 
+  womanAudio.play(); 
+});
+  });
+});
+
+  const kizkulesiMarker = new maplibregl.Marker({ element: kizkulesiEl })
+    .setLngLat([29.004129556278002, 41.021079090494595]) 
+    .setPopup(kizkulesiPopup);
+
+// --- Kız Kulesi etiketi ayrı marker ---
+const kizkulesiLabelEl = document.createElement('div');
+kizkulesiLabelEl.innerText = "Kız Kulesi";
+kizkulesiLabelEl.style.fontFamily = "Tahoma";
+kizkulesiLabelEl.style.fontSize = "11px";
+kizkulesiLabelEl.style.fontWeight = "regular";
+kizkulesiLabelEl.style.color = "#000";
+kizkulesiLabelEl.style.backgroundColor = "rgba(255, 255, 255, 0.5)";
+kizkulesiLabelEl.style.padding = "2px 6px";
+kizkulesiLabelEl.style.borderRadius = "4px";
+kizkulesiLabelEl.style.whiteSpace = "nowrap";
+
+// Label marker (ikonun üstünde sabitlenir, offset ile yukarı taşı)
+const kizkulesiLabelMarker = new maplibregl.Marker({
+    element: kizkulesiLabelEl,
+    anchor: 'bottom',
+    offset: [0, -50]
+})
+.setLngLat([29.004129556278002, 41.021079090494595]);
+
+                                                         // Ses objesini oluştur
+const kizkulesiAudio = new Audio("https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/water-splashes-from-a-ferry-23141.mp3");
+kizkulesiAudio.loop = true;
+
+kizkulesiPopup.on('open', () => {
+  kizkulesiAudio.play();
+
+  document.getElementById('gotoWoman').addEventListener('click', () => {
+    kizkulesiPopup.remove();
+    map.flyTo({
+      center:[29.0067,41.0212],
+      zoom:17,
+      speed:0.8,
+      curve:1.2
+    });
+
+    map.once("moveend", () => {
+      closeAllPopups();
+      marker.addTo(map).togglePopup();
+    });
+  });
+});
+
+kizkulesiPopup.on('close', () => {
+  kizkulesiAudio.pause();
+  kizkulesiAudio.currentTime = 0;
+});
+
+
+ // ---SALACAKTAN YÜZEN KADIN ---
+var el = document.createElement('div');
+el.className = 'custom-marker';
+el.style.backgroundImage = "url('https://raw.githubusercontent.com/eda104296-del/deneme2/4521bda83a1858ddc89d7330ef727ee8d9a2cdf4/Swimming-Woman-Athlete-Flat-Illustration-Graphics-6849239-3-580x387.png')";
+
+const womanPopup = new maplibregl.Popup({ 
+  closeButton: true, 
+  closeOnClick: true, 
+  className: "safiye-popup",
+  anchor: "left",       
+  offset: [20, 0]        
+})
+.setHTML(`
+  <img class="safiye-img" src="https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/Salacak%20kolaj.png">
+  <button id="gotoRumeli" class="popup-btn">&#10140 Rumeli Hisarı'na Git</button>
+`);
+
+var marker = new maplibregl.Marker({ element: el })
+  .setLngLat([29.006708238949113, 41.02129076296671])
+  .setPopup(womanPopup);
+
+// Animasyon
+var start = [29.0067, 41.0212], end = [29.0040, 41.0210];
+var progress = 0, direction = 1, speed = 0.001, animate = false;
+function animateMarker() {
+  if (animate) {
+    progress += direction * speed;
+    if (progress >= 1) { progress = 1; direction = -1; }
+    if (progress <= 0) { progress = 0; direction = 1; }
+    var lng = start[0] + (end[0] - start[0]) * progress;
+    var lat = start[1] + (end[1] - start[1]) * progress;
+    marker.setLngLat([lng, lat]);
+  }
+  requestAnimationFrame(animateMarker);
+}
+animateMarker();
+
+// Ses objesi
+const womanAudio = new Audio("https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/pool-swimming-r-l-6966.mp3");
+womanAudio.loop = true;
+
+// Popup açıldığında ses başlat
+womanPopup.on('open', () => {
+  womanAudio.play();   // ✅ her durumda ses başlasın
+
+  const btn = document.getElementById('gotoRumeli');
+  if (!btn) return;
+
+  btn.addEventListener('click', () => {
+    womanPopup.remove(); 
+    map.flyTo({
+      center: [29.054364649017444, 41.085611023292714], 
+      zoom: 15,
+      speed: 0.8,
+      curve: 1.2
+    });
+
+    map.once("moveend", () => {
+      document.getElementById("gotoDoganBtn").style.display = "block";
+    });
+  }, { once: true });
+});
+
+// Popup kapanınca ses durdur
+womanPopup.on('close', () => {
+  womanAudio.pause();
+  womanAudio.currentTime = 0;
+});
+
+// ✅ Marker’a tıklayınca popup da açılsın, ses de başlasın
+el.addEventListener('click', () => {
+  womanAudio.play();
+});
+
+// Doğan Nadi butonu
+document.getElementById("gotoDoganBtn").addEventListener("click", () => {
+  document.getElementById("gotoDoganBtn").style.display = "none";
+  closeAllPopups();
+
+  if(!isDoganVisible){
+    map.setLayoutProperty('dogan-line-layer','visibility','visible');
+    map.setLayoutProperty('dogan-text-layer','visibility','visible');
+    pin1.addTo(map); pin2.addTo(map);
+
+    var bounds = new maplibregl.LngLatBounds();
+    bounds.extend([29.054364649017444, 41.085611023292714]);
+    bounds.extend([29.06154331448257,40.973793713354084]);
+    map.fitBounds(bounds,{padding:80,duration:1200});
+
+    doganAudio.play();
+    doganMarker.togglePopup();
+    isDoganVisible = true;
+  }
+});
+
+// --- DOĞAN NADİ ---
+const doganEl = document.createElement('div');
+doganEl.className = 'img-marker';
+doganEl.style.backgroundImage = "url('https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/do%C4%9Fan%20nadi.png')";
+
+const doganPopup = new maplibregl.Popup({ 
+  closeButton:true, 
+  closeOnClick:true, 
+  className:"safiye-popup", 
+  anchor:"left", 
+  offset:[0,150]
+})
+.setHTML(`
+  <div style="text-align:center;">
+    <img class="safiye-img" src="https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/Do%C4%9Fan%20Nadi%20Evi_Kolaj.png">
+    <br>
+    <button id="gotoEtiler" class="popup-btn">&#10140 Etiler'e Git</button>
+  </div>
+`);
+
+const doganMarker = new maplibregl.Marker({ element: doganEl })
+  .setLngLat([29.054364649017444, 41.085611023292714])
+  .setPopup(doganPopup);
+
+// --- Doğan Nadi etiketi ayrı marker ---
+const doganLabelEl = document.createElement('div');
+doganLabelEl.innerText = "Doğan Nadi'nin Evi";
+doganLabelEl.style.fontFamily = "Tahoma";
+doganLabelEl.style.fontSize = "11px";
+doganLabelEl.style.fontWeight = "regular";
+doganLabelEl.style.color = "#000";
+doganLabelEl.style.backgroundColor = "rgba(255, 255, 255, 0.5)";
+doganLabelEl.style.padding = "2px 6px";
+doganLabelEl.style.borderRadius = "4px";
+doganLabelEl.style.whiteSpace = "nowrap";
+
+// Label marker (ikonun üstünde sabitlenir, offset ile biraz yukarı kaydırdık)
+const doganLabelMarker = new maplibregl.Marker({
+    element: doganLabelEl,
+    anchor: 'bottom',
+    offset: [0, -40]   // yukarıya 40px taşı
+})
+.setLngLat([29.054364649017444, 41.085611023292714]);
+
+const doganAudio = new Audio("https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/nightingale-41068.mp3");
+doganAudio.loop = true;
+
+                                                        // --- Doğan Nadi çizgisi ---
+  var doganLine = {
+    "type":"Feature",
+    "geometry":{
+      "type":"LineString",
+      "coordinates":[
+        [29.054364649017444, 41.085611023292714],
+        [29.050, 41.06],
+        [29.047145239239438, 41.04221367999123],
+        [29.055, 41.01],
+        [29.06154331448257, 40.973793713354084]
+      ]
+    }
+  };
+  var smoothLine = turf.bezierSpline(doganLine);
+  map.addSource('dogan-line', { type:'geojson', data: smoothLine });
+  map.addLayer({
+    'id':'dogan-line-layer',
+    'type':'line',
+    'source':'dogan-line',
+    'layout':{ 'visibility':'none' },
+    'paint':{ 'line-color': '#FFAA66', 'line-width': 1.5, 'line-dasharray':[2,2] }
+  });
+
+                                                           // --- Doğan Nadi yazısı ---
+  var doganText = {
+    "type": "FeatureCollection",
+    "features": [{
+      "type": "Feature",
+      "properties": {
+        "text": "Baki doğrusu pek gezemediğim için İstanbul’un dillere destan semtlerini pek bilemiyorum. Ama her birinin kendisine mahsus renkli bir güzelliği olduğuna şüphe yok.... Ben Göztepe’de doğrdum fakat çocukluğum Beylerbeyi'nde geçti. Gerçi şimdi bizim eski Beylerbeyi'nden pek bir şey kalmadı ama hatıralar beni gine oraya bağlar."
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [29.05530928472136, 41.00296959743449]
+      }
+    }]
+  };
+  map.addSource('dogan-text', { type:'geojson', data: doganText });
+  map.addLayer({
+  'id': 'dogan-text-layer',
+  'type': 'symbol',
+  'source': 'dogan-text',
+  'layout': {
+    'text-field': ['get', 'text'],
+    'text-font': ['Tahoma'],
+    'text-size': 14,
+    'text-max-width': 40,
+    'text-justify': 'center',
+    'text-anchor': 'center', 
+    'visibility': 'none'
+  },
+  'paint': {
+    'text-color': '#000000',
+    'text-halo-color': '#ffffff',
+    'text-halo-width': 2
+  }
+});
+
+
+  function closeAllPopups() {
+  ferryPopup.remove();
+  womanPopup.remove();
+  kizkulesiPopup.remove();
+  safiyeTextPopup.remove();
+  safiyeImagePopup.remove();
+  doganPopup.remove();
+  falihPopup.remove();
+  falihYuzerPopup.remove();
+  heartPopup.remove();   // ❤️ kalbi de kapat
+  heartPopup2.remove();  // ❤️ ikinci kalp için
+  document.getElementById("gotoDoganBtn").style.display = "none";
+}
+
+
+
+                                                     // --- Göztepe Beylerbeyi Pushpin görselleri ---
+const pinUrl = "https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/pushpin-png-27723.png";
+
+function createLabeledPin(url, labelText) {
+  const wrapper = document.createElement('div');
+  wrapper.style.position = "relative";
+  wrapper.style.display = "inline-block";
+
+                                // Pin görseli
+  const el = document.createElement('div');
+  el.style.width = "40px";
+  el.style.height = "40px";
+  el.style.backgroundImage = `url('${url}')`;
+  el.style.backgroundSize = "contain";
+  el.style.backgroundRepeat = "no-repeat";
+  el.style.backgroundPosition = "center";
+  wrapper.appendChild(el);
+
+                                                  // Yazı etiketi
+  const label = document.createElement('div');
+  label.innerText = labelText;
+  label.style.fontFamily = "Tahoma";
+  label.style.fontSize = "12px";
+  label.style.color = "#000";
+  label.style.backgroundColor = "#fff";
+  label.style.padding = "2px 6px";
+  label.style.borderRadius = "4px";
+  label.style.whiteSpace = "nowrap";
+
+label.style.position = "absolute";
+label.style.bottom = "45px";             // pinin altına 45px mesafe
+label.style.left = "50%";             // yatayda ortala
+label.style.transform = "translateX(-50%)"; // ortalama düzeltmesi
+
+
+  wrapper.appendChild(label);
+
+  return wrapper;
+}
+
+                                                              // Beylerbeyi pushpin
+const pin1 = new maplibregl.Marker({ element: createLabeledPin(pinUrl, "Büyüdüğü yer: Beylerbeyi") })
+  .setLngLat([29.047145239239438, 41.04221367999123]);
+
+                                                              // Göztepe pushpin
+const pin2 = new maplibregl.Marker({ element: createLabeledPin(pinUrl, "Doğduğu yer: Göztepe") })
+  .setLngLat([29.06154331448257, 40.973793713354084]);
+
+
+                                                       // --- Doğan Nadi toggle mantığı ---
+  let isDoganVisible = false;
+doganEl.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  if(!isDoganVisible){
+    marker.remove();  
+
+    map.setLayoutProperty('dogan-line-layer','visibility','visible');
+    map.setLayoutProperty('dogan-text-layer','visibility','visible');
+    pin1.addTo(map); pin2.addTo(map);
+
+    var bounds = new maplibregl.LngLatBounds();
+    bounds.extend([29.054364649017444, 41.085611023292714]);
+    bounds.extend([29.06154331448257,40.973793713354084]);
+    map.fitBounds(bounds,{padding:80,duration:1200});
+
+    doganAudio.play();
+    doganMarker.togglePopup();
+    isDoganVisible = true;
+  }
+});
+
+  map.on('click', (e)=>{
+    if(isDoganVisible){
+      const target = e.originalEvent.target;
+      if (target !== doganEl) {
+        map.setLayoutProperty('dogan-line-layer','visibility','none');
+        map.setLayoutProperty('dogan-text-layer','visibility','none');
+        pin1.remove(); pin2.remove();
+        doganAudio.pause(); doganAudio.currentTime = 0;
+        doganPopup.remove();
+        isDoganVisible = false;
+      }
+    }
+  });
+
+
+  
+// >>> ETİLER’E GİT BUTONU KODU <<<
+doganPopup.on('open', () => {
+  const btn = document.getElementById("gotoEtiler");  
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    // önce Doğan Nadi görünürlüğünü kapat
+    if (map.getLayer('dogan-line-layer')) {
+      map.setLayoutProperty('dogan-line-layer','visibility','none');
+    }
+    if (map.getLayer('dogan-text-layer')) {
+      map.setLayoutProperty('dogan-text-layer','visibility','none');
+    }
+    if (pin1) pin1.remove();
+    if (pin2) pin2.remove();
+    doganAudio.pause();
+    doganAudio.currentTime = 0;
+    doganPopup.remove();
+    isDoganVisible = false;
+
+    // Safiye Ayla’ya uçur
+    map.flyTo({
+      center: [29.037390599290744, 41.08026547133839],
+      zoom: 14,
+      speed: 0.8,
+      curve: 1.2
+    });
+
+    map.once("moveend", () => {
+      closeAllPopups();        
+
+      safiyeImagePopup.addTo(map);   
+      safiyeTextPopup.addTo(map);    
+
+      // Ses yok, sadece popup açılıyor
+      musicBtn.style.display = "block";
+      updateMusicBtnPos();
+
+      if (!map.getSource('safiye-ada-line')) {
+        map.addSource('safiye-ada-line', { type:'geojson', data: safiyeAdaLine });
+        map.addLayer({
+          'id': 'safiye-ada-layer',
+          'type': 'line',
+          'source': 'safiye-ada-line',
+          'layout': { 'visibility': 'visible' },
+          'paint': { 'line-color': '#FFA500', 'line-width': 2, 'line-dasharray':[2,2] }
+        });
+      }
+      if (!map.getSource('safiye-ada2-line')) {
+        map.addSource('safiye-ada2-line', { type:'geojson', data: safiyeAdaLine2 });
+        map.addLayer({
+          'id': 'safiye-ada2-layer',
+          'type': 'line',
+          'source': 'safiye-ada2-line',
+          'layout': { 'visibility': 'visible' },
+          'paint': { 'line-color': '#FFA500', 'line-width': 2, 'line-dasharray':[2,2] }
+        });
+      }
+      safiyeAdaMarker.addTo(map);
+      isSafiyeVisible = true;
+    });
+  });
+});
+
+
+// --- SAFİYE AYLA  ---
+const safiyeEl = document.createElement('div');
+safiyeEl.className = 'img-marker';
+safiyeEl.style.backgroundImage = "url('https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/safiye%20ayla.png')";
+
+// Sesler
+// Sesler
+const isteIstanbulAudio = new Audio("https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/Safiye%20ayla%20i%C5%9Fte%20istanbul.mp3");
+const kargaAudio = new Audio("https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/eagle-281163.mp3");
+kargaAudio.loop = true;
+
+
+// Hepsini durduran fonksiyon
+function stopAllSafiyeSounds(){
+  isteIstanbulAudio.pause(); isteIstanbulAudio.currentTime = 0;
+  kargaAudio.pause(); kargaAudio.currentTime = 0;
+}
+
+// --- Görsel popup ---
+const safiyeImagePopup = new maplibregl.Popup({
+  closeButton: true,
+  closeOnClick: false,
+  className: "safiye-popup",
+  anchor: "left",
+  offset: [100, 75]
+})
+.setLngLat([29.0310, 41.0808])
+.setHTML(`
+  <div style="text-align:center;">
+    <img class="safiye-img" 
+         src="https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/Safiye%20Ayla%20Evi_Kolaj.png">
+  </div>
+`);
+
+// --- Yazı popup ---
+const safiyeTextPopup = new maplibregl.Popup({
+  closeButton: true,
+  closeOnClick: false,
+  className: "safiye-popup",
+  anchor: "right",
+  offset: [-100, 75]
+})
+.setLngLat([29.0310, 41.0808])
+.setHTML(`
+  <div class="popup-bubble text-box" 
+       style="width:300px; padding:14px 18px; font-size:13px; line-height:1.4; text-align:justify;">
+    
+    <p><b>Baki Süha Edipoğlu:</b></p>
+    
+    <p>
+      Değerli ses sanatçılarımız hepimizin sevdiği Safiye Ayla Etiler’in sakin çiçeklerle çevrili güzel bir evinde 
+      duvarları değerli eşi Şerif Muhittin Targa’nın yaptığı resimlerle süslü, odaları onun çaldığı kıymetli sazlar, 
+      notalar, kitaplar ve hatıralarla dopdolu tam sanatkar çiftlere mahsus bir yuva.
+    </p>
+    
+    <p id="kargaText" style="cursor:pointer; color:#FF69B4; font-style:italic;">
+      Bahçede Safiye Ayla’nın her birine ayrı ayrı ihtimam ve sevgi ile baktığı kediler, köpekler hatta kargalar var. 
+      Evet kargalar…. İşte bu yavru kargalar evin bahçe tarafına açılmaz kullanılmaz ocak bacasında yuva kuran bir çiftin 
+      Safiye Ayla’nın himayesine terk ettikleri yavruları. <br>
+      <u>İşte sesini duyuyorsunuz (tıklayın)</u>.
+    </p>
+  </div>
+`);
+
+// --- KARGA EVENT ---
+safiyeTextPopup.on('open', () => {
+  const kargaEl = document.getElementById("kargaText");
+  if (kargaEl) {
+    kargaEl.addEventListener("click", () => {
+      stopAllSafiyeSounds();
+      kargaAudio.play().catch(err => console.log("Autoplay engellendi:", err));
+    });
+  }
+});
+
+
+
+
+// Marker
+const safiyeMarker = new maplibregl.Marker({ element: safiyeEl })
+  .setLngLat([29.0310, 41.0808]);
+
+// 🎵 Müzik butonu
+const musicBtn = document.createElement('button');
+musicBtn.innerHTML = "🎵";
+musicBtn.style.position = "absolute";
+musicBtn.style.display = "none";
+musicBtn.style.fontSize = "18px";
+musicBtn.style.background = "#f8c7d8";
+musicBtn.style.border = "none";
+musicBtn.style.borderRadius = "50%";
+musicBtn.style.cursor = "pointer";
+musicBtn.style.width = "32px";
+musicBtn.style.height = "32px";
+musicBtn.style.lineHeight = "32px";
+musicBtn.style.textAlign = "center";
+musicBtn.style.zIndex = "999";
+document.getElementById("map").appendChild(musicBtn);
+
+// 🎵 butona tıklayınca İstanbul şarkısı çal/dur
+musicBtn.addEventListener('click', () => {
+  stopAllSafiyeSounds();
+  if (isteIstanbulAudio.paused) {
+    isteIstanbulAudio.play().catch(e=>console.log("Autoplay engellendi:",e));
+  }
+});
+
+// --- ADA popup ---
+const safiyeAdaPopup = new maplibregl.Popup({
+  closeButton: true,
+  closeOnClick: true,
+  className: "safiye-popup",
+  anchor: "right",
+  offset: [-50, -20]
+})
+.setHTML(`
+  <div class="popup-bubble" style="width:420px; padding:10px 14px; font-size:13px; line-height:1.2; text-align:justify;">
+    <b>Safiye Ayla:</b> Adalarda oturamam. Ada bana hapis gibi gelir, dört bir etrafı su... canım istediği ve aklıma estiği zaman ayağım karada olmalıdır. <br><br>
+    <b>Baki Süha Edipoğlu:</b> Peki Ada'nın gürültüsü de aynı zamanda buna tesir eden bir faktör mü? <br><br>
+    <b>Safiye Ayla:</b> Aaa Ada'da gürültü var mıdır? Hiç farkında değilim. Oturmadım Ada'da. Ben gürültüyü severim bilakis... Sükûnet sevmem yani. Çocukluğumdan beri öyle alıştım. Leyli (gece/yatılı) mektepte büyüdüğüm için o gürültüye mezc oldum. Ben gürültüde fevkalade uyurum. Sessiz bir yerde derhal o uyku zevkimi kaybederim. Hatta gürültülü olan bir yerde sükûnet başlarsa ben uyanırım.
+  </div>
+`);
+
+const adaEl = document.createElement('div');
+adaEl.style.width = "14px";
+adaEl.style.height = "14px";
+adaEl.style.backgroundColor = "#df7957";
+adaEl.style.borderRadius = "50%";
+adaEl.style.border = "2px solid white";
+adaEl.style.cursor = "pointer";
+
+const safiyeAdaMarker = new maplibregl.Marker({ element: adaEl })
+  .setLngLat([29.12189639735095, 40.86985241458069])
+  .setPopup(safiyeAdaPopup);
+
+// --- Ada çizgileri ---
+const safiyeAdaLine = {
+  "type": "Feature",
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [29.0310, 41.0808],                     
+      [29.12189639735095, 40.86985241458069] 
+    ]
+  }
+};
+const safiyeAdaLine2 = {
+  "type": "Feature",
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [29.0310, 41.0808],   
+      [28.788757924488024, 40.97048190555459] 
+    ]
+  }
+};
+
+// --- Ses, popup ve ada kontrolü ---
+let isSafiyeVisible = false;
+
+safiyeEl.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (!isSafiyeVisible) {
+    stopAllSafiyeSounds();
+
+    safiyeImagePopup.addTo(map);
+    safiyeTextPopup.addTo(map);
+    musicBtn.style.display = "block";
+    updateMusicBtnPos();
+
+  if (isDoganVisible) {
+    map.setLayoutProperty('dogan-line-layer','visibility','none');
+    map.setLayoutProperty('dogan-text-layer','visibility','none');
+    pin1.remove(); 
+    pin2.remove();
+    doganAudio.pause();
+    doganAudio.currentTime = 0;
+    doganPopup.remove();
+    isDoganVisible = false;
+  }
+
+    if (!map.getSource('safiye-ada-line')) {
+      map.addSource('safiye-ada-line', { type:'geojson', data: safiyeAdaLine });
+      map.addLayer({
+        'id': 'safiye-ada-layer',
+        'type': 'line',
+        'source': 'safiye-ada-line',
+        'layout': { 'visibility': 'visible' },
+        'paint': { 'line-color': '#FFAA66', 'line-width': 1.5, 'line-dasharray':[2,2] }
+      });
+    }
+    if (!map.getSource('safiye-ada2-line')) {
+      map.addSource('safiye-ada2-line', { type:'geojson', data: safiyeAdaLine2 });
+      map.addLayer({
+        'id': 'safiye-ada2-layer',
+        'type': 'line',
+        'source': 'safiye-ada2-line',
+        'layout': { 'visibility': 'visible' },
+        'paint': { 'line-color': '#FFAA66', 'line-width': 1.5, 'line-dasharray':[2,2] }
+      });
+    }
+    safiyeAdaMarker.addTo(map);
+    isSafiyeVisible = true;
+  }
+});
+
+// Haritanın boş yerine tıklayınca kapat
+map.on('click', (e) => {
+  if (isSafiyeVisible) {
+    const target = e.originalEvent.target;
+    const clickedInsidePopup =
+      target && typeof target.closest === 'function' && target.closest('.maplibregl-popup');
+    if (target === safiyeEl || target === safiyeYuzerEl || target === adaEl || clickedInsidePopup) {
+      return;
+    }
+    safiyeImagePopup.remove();
+    safiyeTextPopup.remove();
+    stopAllSafiyeSounds();
+    musicBtn.style.display = "none";
+    if (map.getLayer('safiye-ada-layer')) {
+      map.removeLayer('safiye-ada-layer');
+      map.removeSource('safiye-ada-line');
+    }
+    if (map.getLayer('safiye-ada2-layer')) {
+      map.removeLayer('safiye-ada2-layer');
+      map.removeSource('safiye-ada2-line');
+    }
+    safiyeAdaMarker.remove();
+    isSafiyeVisible = false;
+  }
+});
+
+// --- Butonu markerın altına sabitle ---
+function updateMusicBtnPos(){
+  const pixel = map.project([29.0310, 41.0808]); 
+  musicBtn.style.left = (pixel.x - 16) + "px";
+  musicBtn.style.top  = (pixel.y + 40) + "px";
+}
+map.on('move', updateMusicBtnPos);
+map.on('zoom', updateMusicBtnPos);
+
+
+
+
+// --- Zoom ile marker boyutları (sadece ikon büyüsün) ---
+map.on('zoom', () => {
+  const z = map.getZoom();
+
+  // Safiye & Doğan markerları → daha büyük büyüsün
+  const sizeSpecial = z >= 13 ? "150px" : "70px";
+
+  // Diğer markerlar → standart
+  const sizeNormal = z >= 15 ? "150px" : "70px";
+
+  // Safiye & Doğan
+  safiyeEl.style.width = safiyeEl.style.height = sizeSpecial;
+  doganEl.style.width = doganEl.style.height = sizeSpecial;
+
+  // Diğerleri
+  kizkulesiEl.style.width = kizkulesiEl.style.height = sizeNormal;
+  ferryEl.style.width     = ferryEl.style.height     = sizeNormal;
+  falihEl.style.width     = falihEl.style.height     = sizeNormal;
+  ahmetEl.style.width     = ahmetEl.style.height     = sizeNormal;
+  ferryEl679.style.width  = ferryEl679.style.height  = sizeNormal;
+});
+
+
+
+// --- Etiket ---
+const safiyeLabelEl = document.createElement('div');
+safiyeLabelEl.innerText = "Safiye Ayla'nın Evi";
+safiyeLabelEl.style.fontFamily = "Tahoma";
+safiyeLabelEl.style.fontSize = "11px";
+safiyeLabelEl.style.color = "#000";
+safiyeLabelEl.style.backgroundColor = "rgba(255, 255, 255, 0.5)";
+safiyeLabelEl.style.padding = "2px 6px";
+safiyeLabelEl.style.borderRadius = "4px";
+
+const safiyeLabelMarker = new maplibregl.Marker({
+  element: safiyeLabelEl,
+  anchor: 'bottom',
+  offset: [0, -40]
+}).setLngLat([29.0310, 41.0808]);
+
+// --- Toggle sistemi ---
+const toggleItems = [
+  {show: ()=>{
+    map.setLayoutProperty('route-line','visibility','visible');
+    map.setLayoutProperty('route-line-thin','visibility','none');
+  }, hide: ()=>{
+    map.setLayoutProperty('route-line','visibility','none');
+    map.setLayoutProperty('route-line-thin','visibility','visible');
+  }},
+  {show: ()=>{ marker.addTo(map); animate=true; },
+   hide: ()=>{ marker.remove(); animate=false; }},
+  {show: ()=>{ ferryMarker.addTo(map); ferryAnimate=true; },
+   hide: ()=>{ ferryMarker.remove(); ferryAnimate=false; }},
+  { show: ()=>{ safiyeMarker.addTo(map); safiyeLabelMarker.addTo(map); },
+    hide: ()=>{ safiyeMarker.remove(); safiyeLabelMarker.remove(); } },
+  { 
+  show: ()=>{ doganMarker.addTo(map); doganLabelMarker.addTo(map); }, 
+  hide: ()=>{ doganMarker.remove(); doganLabelMarker.remove(); } 
+},
+  { 
+  show: ()=>{ kizkulesiMarker.addTo(map); kizkulesiLabelMarker.addTo(map); }, 
+  hide: ()=>{ kizkulesiMarker.remove(); kizkulesiLabelMarker.remove(); } 
+},
+  {show: ()=>startMarker.addTo(map), hide: ()=>startMarker.remove()}
+];
+var isVisible = false;
+document.getElementById('toggleMarkerBtn').addEventListener('click', function(){
+  if(!isVisible){
+    toggleItems.forEach(it=>it.show());
+    this.textContent="Hide 677";
+    isVisible=true;
+    var bounds = turf.bbox({ "type":"FeatureCollection","features":[smoothRoute] });
+    map.fitBounds(bounds,{padding:50,duration:1000});
+  } else {
+    toggleItems.forEach(it=>it.hide());
+    this.textContent="677";
+    isVisible=false;
+
+    // Haritayı başlangıç zoom ve merkeze döndür
+    map.flyTo({
+      center: initialCenter,
+      zoom: initialZoom,
+      speed: 1.2,
+      curve: 1,
+      essential: true
+    });
+  }
+});
+
+// --- Birine tıklayınca diğerini kapat ---
+safiyeMarker.getElement().addEventListener('click', () => { 
+  // Safiye markerına tıklayınca ses otomatik başlamasın
+  doganPopup.remove();
+  doganAudio.pause(); 
+  doganAudio.currentTime = 0;
+});
+
+doganMarker.getElement().addEventListener('click', () => { 
+  doganAudio.play(); 
+  safiyeImagePopup.remove();
+  safiyeTextPopup.remove();
+  stopAllSafiyeSounds(); // sadece mevcut sesleri durdur
+});
+
+
+
+  // --- Noktalar ---
+ var points = {
+  "type":"FeatureCollection",
+  "features":[
+    {"type":"Feature","geometry":{"type":"Point","coordinates":[28.994386920347367, 41.035754640900606]},"properties":{"color":"#FF69B4"}},
+    {"type":"Feature","geometry":{"type":"Point","coordinates":[29.004129556278002, 41.021079090494595]},"properties":{"color":"#FF69B4"}},
+    {"type":"Feature","geometry":{"type":"Point","coordinates":[28.994386920347367, 41.035754640900606]},"properties":{"color":"#FF69B4"}},
+    {"type":"Feature","geometry":{"type":"Point","coordinates":[29.054364649017444, 41.085611023292714]},"properties":{"color":"#FF69B4"}},
+    {"type":"Feature","geometry":{"type":"Point","coordinates":[29.0310, 41.0808]},"properties":{"color":"#FF69B4"}},
+    {"type":"Feature","geometry":{"type":"Point","coordinates":[29.025090409022088, 40.9789711605181]},"properties":{"color":"#FF69B4"}},
+    {"type":"Feature","geometry":{"type":"Point","coordinates":[29.023024123681036, 40.979385359049935]},"properties":{"color":"#FF69B4"}},
+    {"type":"Feature","geometry":{"type":"Point","coordinates":[29.02664972490517, 40.98826133293559]},"properties":{"color":"#FF69B4"}},
+    {"type":"Feature","geometry":{"type":"Point","coordinates":[29.043264848951356, 41.07792541864808]},"properties":{"color":"#FF69B4"}},
+    {"type":"Feature","geometry":{"type":"Point","coordinates":[29.065424885372725, 41.100118558865866]},"properties":{"color":"#FF69B4"}},
+    {"type":"Feature","geometry":{"type":"Point","coordinates":[28.98534870727061, 41.03114753324831]},"properties":{"color":"#FF69B4"}},
+    
+    // ✅ Büyükada noktası turuncu
+    {"type":"Feature","geometry":{"type":"Point","coordinates":[29.12189639735095, 40.86985241458069]},"properties":{"color":"#df7957"}}
+  ]
+};
+
+map.addSource('points', { type:'geojson', data: points });
+
+map.addLayer({
+  'id':'points-layer',
+  'type':'circle',
+  'source':'points',
+  'paint':{
+    'circle-radius':6,
+    'circle-color':['get','color'],   // ✅ her nokta kendi rengini alır
+    'circle-stroke-width':2,
+    'circle-stroke-color':'#fff'
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  // ======================
+  // 679 ROTA ve NOKTALAR
+  // ======================
+
+  var route679 = {
+    "type":"Feature",
+    "geometry":{
+      "type":"LineString",
+      "coordinates":[
+        [29.025090409022088, 40.9789711605181],
+        [29.024483589090735, 40.98011635852483],
+        [29.023024123681036, 40.979385359049935],
+        [29.02664972490517, 40.98826133293559]
+      ]
+    }
+  };
+
+  var smoothRoute679 = turf.bezierSpline(route679);
+  map.addSource('route-679', { type:'geojson', data: smoothRoute679 });
+
+  // Kalın çizgi (toggle açıkken)
+  map.addLayer({
+    'id':'route-679-line',
+    'type':'line',
+    'source':'route-679',
+    'layout':{ 'visibility':'none' },
+    'paint':{ 'line-color':'#FF69B4','line-width':3,'line-dasharray':[2,2] }
+  });
+
+  // İnce çizgi (toggle kapalıyken)
+  map.addLayer({
+    'id':'route-679-line-thin',
+    'type':'line',
+    'source':'route-679',
+    'layout':{ 'visibility':'visible' },
+    'paint':{ 'line-color':'#FF69B4','line-width':1,'line-dasharray':[2,2] }
+  });
+
+// --- 679 PROGRAM BAŞLANGICI ---
+const startEl679 = document.createElement('div');
+startEl679.style.width = "40px";
+startEl679.style.height = "40px";
+startEl679.style.backgroundImage = "url('https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/destination_6194819.png')";
+startEl679.style.backgroundSize = "contain";
+startEl679.style.position = "relative"; 
+startEl679.style.cursor = "pointer";
+
+// Yazı etiketi
+const label679 = document.createElement('div');
+label679.innerText = "Program Başlangıcı";
+label679.style.position = "absolute";
+label679.style.bottom = "50px";             
+label679.style.left = "50%";                
+label679.style.transform = "translateX(-50%)";
+label679.style.fontFamily = "Tahoma";
+label679.style.fontSize = "12px";
+label679.style.fontWeight = "bold";
+label679.style.color = "#31242b";
+label679.style.whiteSpace = "nowrap";       
+label679.style.backgroundColor = "#ec91bf"; 
+label679.style.padding = "2px 4px";         
+label679.style.borderRadius = "2px";        
+startEl679.appendChild(label679);
+
+// Marker objesi
+const startMarker679 = new maplibregl.Marker({ element: startEl679 })
+  .setLngLat([29.021691746089175, 40.974545473855166]);  // 679 rotanın başlangıç noktası
+
+// Marker tıklanınca ferry açılır
+startEl679.addEventListener('click', () => {
+  map.flyTo({ 
+    center: [29.025090409022088, 40.9789711605181], 
+    zoom: 15, 
+    speed: 0.8, 
+    curve: 1.2 
+  });
+  setTimeout(() => { 
+    ferryMarker679.togglePopup(); 
+  }, 1200);
+});
+
+
+// --- 679 FERRY --- 
+var ferryEl679 = document.createElement('div');
+ferryEl679.className = 'custom-marker';
+ferryEl679.style.backgroundImage = "url('https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/ferry-boat.png')";
+ferryEl679.style.width = "100px";
+ferryEl679.style.height = "60px";
+
+// 🔊 Ses objeleri (677'dekiyle aynı)
+const ferryAudio679_1 = new Audio("https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/water-splashes-from-a-ferry-23141.mp3");
+const ferryAudio679_2 = new Audio("https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/boat-horn-6204.mp3");
+ferryAudio679_1.loop = true;
+ferryAudio679_2.loop = true;
+
+var ferryMarker679 = new maplibregl.Marker({ element: ferryEl679 })
+  .setLngLat([29.025090409022088, 40.9789711605181]);
+
+// hareket sınırları
+var ferryStart679 = [29.025090409022088, 40.9789711605181];
+var ferryEnd679   = [29.021691746089175, 40.974545473855166];
+
+var ferryProgress679 = 0, ferryDirection679 = 1, ferrySpeed679 = 0.0015;
+var ferryAnimate679 = false;
+
+function animateFerry679() {
+  if (ferryAnimate679) {
+    ferryProgress679 += ferryDirection679 * ferrySpeed679;
+    if (ferryProgress679 >= 1) { ferryProgress679 = 1; ferryDirection679 = -1; }
+    if (ferryProgress679 <= 0) { ferryProgress679 = 0; ferryDirection679 = 1; }
+    var lng = ferryStart679[0] + (ferryEnd679[0] - ferryStart679[0]) * ferryProgress679;
+    var lat = ferryStart679[1] + (ferryEnd679[1] - ferryStart679[1]) * ferryProgress679;
+    ferryMarker679.setLngLat([lng, lat]);
+  }
+  requestAnimationFrame(animateFerry679);
+}
+animateFerry679();
+
+// --- 679 FERRY POPUP ---
+const ferryPopup679 = new maplibregl.Popup({ 
+  closeButton: true, 
+  closeOnClick: true,
+  className:"safiye-popup",
+  anchor: "left",        
+  offset: [50, 25]      
+})
+.setHTML(`
+  <div class="popup-bubble text-box">
+    <h3 style="margin-bottom:8px;">Baki Süha Edipoğlu</h3>
+    <div class="text-body">
+      <p>Bilmem evinde bulabilir miyim bugün İstanbul’a iner mi acaba diye düşündüm. 
+       Birdenbire elim telefonun reseptörüne yapıştı, numaraları süratle çevirdim.</p>
+      </p>Falih Rıfkı bey siz misiniz?</p>
+      <p>Bir ev içi rahatlığıyla cevap verdi: "Buyrun efendim, benim üstadım".</p>
+      <p>Yarın size gelmek istiyorum. </p> İstanbul üzerine birkaç dakika olsun konuşmamız mümkün mü?</p>
+      <p>Yumuşak hülyalı bir sesle cevap veriyor: </p>"İstanbul için her zaman konuşabiliriz,</p> 
+      yarın saat 15:30’da sizi bekliyorum."</p>
+      <p>Evet sevgili dinleyiciler. </p>Bu hafta yolumuz Moda’ya kadar uzayacak</p> 
+      Kadıköy vapuru hazır, buyrun gidelim.</p>
+    </div>
+    <!-- 🔽 Buton -->
+    <button id="gotoFalih" class="popup-btn">&#10140 Falih Rıfkı Atay'ın Evi'ne Git</button>
+  </div>
+`);
+
+
+// Popup açılınca sesleri çal
+ferryPopup679.on('open', () => {
+  ferryAudio679_1.play().catch(e => console.log("Su sesi başlatılamadı:", e));
+  ferryAudio679_2.play().catch(e => console.log("Düdük sesi başlatılamadı:", e));
+
+  const btn = document.getElementById("gotoFalih");
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    ferryPopup679.remove();  
+    ferryAudio679_1.pause(); ferryAudio679_1.currentTime = 0;
+    ferryAudio679_2.pause(); ferryAudio679_2.currentTime = 0;
+
+    map.flyTo({
+      center: [29.02530926313033, 40.97973512833929], // Falih marker koordinatı
+      zoom: 16,
+      speed: 0.8,
+      curve: 1.2
+    });
+
+    map.once("moveend", () => {
+      closeAllPopups();
+      falihMarker.addTo(map).togglePopup();
+    });
+  }, { once: true });
+});
+
+// Popup kapanınca sesleri durdur
+ferryPopup679.on('close', () => {
+  ferryAudio679_1.pause(); ferryAudio679_1.currentTime = 0;
+  ferryAudio679_2.pause(); ferryAudio679_2.currentTime = 0;
+});
+
+// Marker’a tıklayınca da ses başlat
+ferryEl679.addEventListener('click', () => {
+  ferryAudio679_1.play().catch(e=>console.log(e));
+  ferryAudio679_2.play().catch(e=>console.log(e));
+});
+
+// Marker ile popup’u bağla
+ferryMarker679.setPopup(ferryPopup679);
+
+
+
+// --- FALİH RIFKI --- 
+const falihEl = document.createElement('div');
+falihEl.className = 'img-marker';
+falihEl.style.backgroundImage = "url('https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/Falih%20R%C4%B1fk%C4%B1.png')";
+
+// --- FALİH ÇİZGİLERİ (başta kapalı) ---
+var falihLine1 = {
+  "type":"Feature","geometry":{"type":"LineString","coordinates":[
+    [29.023024123681036, 40.979385359049935],
+    [28.98177736884738, 41.25391086972436]    // Hedef 1
+  ]}
+};
+var falihLine2 = {
+  "type":"Feature","geometry":{"type":"LineString","coordinates":[
+    [29.023024123681036, 40.979385359049935],
+    [29.56335358435834, 41.175621877764584]   // Hedef 2
+  ]}
+};
+var falihLine3 = {
+  "type":"Feature","geometry":{"type":"LineString","coordinates":[
+    [29.023024123681036, 40.979385359049935],
+    [29.234889473373695, 40.91802632606148]   // Hedef 3 (Yakacık Kalp)
+  ]}
+};
+
+map.addSource('falih-line1', { type:'geojson', data: turf.bezierSpline(falihLine1) });
+map.addLayer({
+  'id':'falih-line1-layer','type':'line','source':'falih-line1',
+  'layout':{ 'visibility':'none' },
+  'paint':{ 'line-color':'#FFAA66','line-width':2,'line-dasharray':[2,2] }
+});
+map.addSource('falih-line2', { type:'geojson', data: turf.bezierSpline(falihLine2) });
+map.addLayer({
+  'id':'falih-line2-layer','type':'line','source':'falih-line2',
+  'layout':{ 'visibility':'none' },
+  'paint':{ 'line-color':'#FFAA66','line-width':2,'line-dasharray':[2,2] }
+});
+map.addSource('falih-line3', { type:'geojson', data: turf.bezierSpline(falihLine3) });
+map.addLayer({
+  'id':'falih-line3-layer','type':'line','source':'falih-line3',
+  'layout':{ 'visibility':'none' },
+  'paint':{ 'line-color':'#FFAA66','line-width':2,'line-dasharray':[2,2] }
+});
+
+// --- Çizgi görünürlüğü kontrolü ---
+let isFalihVisible = false;
+function showFalihLines(){
+  map.setLayoutProperty('falih-line1-layer','visibility','visible');
+  map.setLayoutProperty('falih-line2-layer','visibility','visible');
+  map.setLayoutProperty('falih-line3-layer','visibility','visible');
+  isFalihVisible = true;
+}
+function hideFalihLines(){
+  map.setLayoutProperty('falih-line1-layer','visibility','none');
+  map.setLayoutProperty('falih-line2-layer','visibility','none');
+  map.setLayoutProperty('falih-line3-layer','visibility','none');
+  isFalihVisible = false;
+}
+
+// Ses objesi
+const falihAudio = new Audio("https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/piano-jazz-203488.mp3");
+falihAudio.loop = true;
+
+const falihPopup = new maplibregl.Popup({ 
+  closeButton:true, 
+  closeOnClick:false,                  // falih'i biz yöneteceğiz
+  className:"safiye-popup falih-pop",  // 👈 benzersiz sınıf eklendi
+  anchor:"left", 
+  offset:[50,0]
+})
+.setHTML(`
+  <div style="text-align:center;">
+    <img class="safiye-img" 
+         src="https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/Moda%20Falih%20Kolaj.png">
+    <br>
+    <button id="gotoYuruyen" class="popup-btn">&#10140 Kadıköy'de Gez</button>
+  </div>
+`);
+
+const falihMarker = new maplibregl.Marker({ element: falihEl })
+  .setLngLat([29.023024123681036, 40.979385359049935])
+  .setPopup(falihPopup);
+
+// --- Popup davranışı ---
+falihPopup.on('open', () => {
+  falihAudio.play().catch(e => console.log("Falih sesini oynatma engellendi:", e));
+  showFalihLines();  
+
+  const btn = document.getElementById("gotoYuruyen");
+  if (btn) {
+    btn.addEventListener("click", () => {
+      hideFalihLines();  
+      falihPopup.remove();
+      falihAudio.pause(); 
+      falihAudio.currentTime = 0;
+
+      const midLng = (yuruyenStart[0] + yuruyenEnd[0]) / 2;
+      const midLat = (yuruyenStart[1] + yuruyenEnd[1]) / 2;
+
+      map.flyTo({
+        center: [midLng, midLat],
+        zoom: 15,
+        speed: 0.8,
+        curve: 1.2
+      });
+
+      map.once("moveend", () => {
+        closeAllPopups();
+        yuruyenMarker.addTo(map).togglePopup();
+      });
+    }, { once: true });
+  }
+});
+
+falihPopup.on('close', () => {
+  falihAudio.pause();
+  falihAudio.currentTime = 0;
+  hideFalihLines();
+});
+
+falihEl.addEventListener('click', () => {
+  falihAudio.play().catch(e => console.log("Falih marker tıklandığında ses başlamadı:", e));
+  showFalihLines();
+});
+map.on("click", (e) => {
+  const t = e.originalEvent.target;
+
+  // ❤️ Heart marker & popup
+  const heartEl = document.getElementById("heart1");
+  const clickedOnHeartMarker = heartEl && heartEl.contains(t);
+  const clickedInsideHeartPopup = t.closest && t.closest(".heart-pop");
+
+  // Falih popup içinde mi?
+  const clickedInsideFalih = t.closest && t.closest(".falih-pop");
+
+  // FalihYüzen popup & marker
+  const clickedInsideFalihYuz = t.closest && t.closest(".falihyuz-pop");
+  const falihYuzerEl = document.getElementById("falihYuzerMarker");
+  const clickedOnFalihYuzMarker = falihYuzerEl && falihYuzerEl.contains(t);
+
+  // 👇 Eğer heart, falih, falihYüzen popup/marker’ına tıklandıysa → kapatma
+  if (
+    clickedOnHeartMarker ||
+    clickedInsideHeartPopup ||
+    clickedInsideFalih ||
+    clickedInsideFalihYuz ||
+    clickedOnFalihYuzMarker
+  ) {
+    return;
+  }
+
+  // 👇 diğer durumlarda → hepsini kapat
+  if (falihPopup.isOpen()) {
+    falihPopup.remove();
+    falihAudio.pause();
+    falihAudio.currentTime = 0;
+    hideFalihLines();
+  }
+
+  if (falihYuzerPopup.isOpen()) {
+    falihYuzerPopup.remove();
+  }
+
+  if (heartPopup.isOpen()) {
+    heartPopup.remove();
+  }
+});
+
+// --- Falih Rıfkı Atay etiketi ayrı marker ---
+const falihLabelEl = document.createElement('div');
+falihLabelEl.innerText = "Falih Rıfkı Atay'ın Evi";
+falihLabelEl.style.fontFamily = "Tahoma";
+falihLabelEl.style.fontSize = "11px";
+falihLabelEl.style.fontWeight = "regular";
+falihLabelEl.style.color = "#000";
+falihLabelEl.style.backgroundColor = "rgba(255, 255, 255, 0.5)";
+falihLabelEl.style.padding = "2px 6px";
+falihLabelEl.style.borderRadius = "4px";
+falihLabelEl.style.whiteSpace = "nowrap";
+
+const falihLabelMarker = new maplibregl.Marker({
+    element: falihLabelEl,
+    anchor: 'bottom',
+    offset: [0, -40]
+})
+.setLngLat([29.023024123681036, 40.979385359049935]);
+
+// --- 679 YÜRÜYEN ADAM ---
+var yuruyenEl = document.createElement('div');
+yuruyenEl.className = 'custom-marker';
+yuruyenEl.style.backgroundImage = "url('https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/Y%C3%BCr%C3%BCyen%20adam.png')";
+yuruyenEl.style.width = "60px";
+yuruyenEl.style.height = "60px";
+
+// Marker objesi (başlangıç noktasıyla)
+var yuruyenMarker = new maplibregl.Marker({ element: yuruyenEl })
+  .setLngLat([29.023024123681036, 40.979385359049935]);
+
+// hareket sınırları
+var yuruyenStart = [29.023024123681036, 40.979385359049935];
+var yuruyenEnd   = [29.02664972490517, 40.98826133293559];
+
+var yuruyenProgress = 0, yuruyenDirection = 1, yuruyenSpeed = 0.0015;
+var yuruyenAnimate = false;
+
+function animateYuruyen() {
+  if (yuruyenAnimate) {
+    yuruyenProgress += yuruyenDirection * yuruyenSpeed;
+    if (yuruyenProgress >= 1) { yuruyenProgress = 1; yuruyenDirection = -1; }
+    if (yuruyenProgress <= 0) { yuruyenProgress = 0; yuruyenDirection = 1; }
+
+    var lng = yuruyenStart[0] + (yuruyenEnd[0] - yuruyenStart[0]) * yuruyenProgress;
+    var lat = yuruyenStart[1] + (yuruyenEnd[1] - yuruyenStart[1]) * yuruyenProgress;
+    yuruyenMarker.setLngLat([lng, lat]);
+  }
+  requestAnimationFrame(animateYuruyen);
+}
+animateYuruyen();
+
+// --- YÜRÜYEN ADAM SESİ ---
+const yuruyenAudio = new Audio("https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/walking-on-a-stone-path-407766.mp3");
+yuruyenAudio.loop = true;
+yuruyenAudio.volume = 1.0; // sesi maksimum yap
+
+// --- YÜRÜYEN ADAM POPUP --- 
+const yuruyenPopup = new maplibregl.Popup({ 
+  closeButton: true, 
+  closeOnClick: true,
+  className: "safiye-popup",
+  anchor: "bottom",
+  offset: [0, -35]
+})
+.setHTML(`
+  <div class="popup-bubble text-box">
+    <h3 style="margin-bottom:8px;">Baki Süha Edipoğlu:</h3>
+    <div class="text-body">
+      <p>Sevgili dinleyiciler Falih Rıfkı Atay’ın Moda’daki evinden çıktıktan sonra ağır ağır yürüyoruz.</p>
+      <p><b>Birden karşıma Kadıköy’de oturan hepinizin çok sevdiği şair, tiyatro yazarı, fikir adamı Ahmet Kutsi Tecer geliyor.</b></p>
+      <p>Hemen evine gidiyoruz.</p>
+    </div>
+    <button id="gotoAhmet" class="popup-btn">&#10140 Ahmet Kutsi Tecer'in Evine Git</button>
+  </div>
+`);
+
+// popup açıldığında ses ve buton
+yuruyenPopup.on('open', () => {
+  yuruyenAudio.play().catch(e=>console.log("Autoplay engellendi:", e));
+
+  const btn = document.getElementById("gotoAhmet");
+  if (btn) {
+    btn.addEventListener("click", () => {
+      yuruyenPopup.remove();
+      yuruyenAudio.pause();
+      yuruyenAudio.currentTime = 0;
+
+      map.flyTo({
+        center: [29.02664972490517, 40.98826133293559],
+        zoom: 16,
+        speed: 0.8,
+        curve: 1.2
+      });
+
+      map.once("moveend", () => {
+        closeAllPopups();
+        ahmetMarker.addTo(map);
+        ahmetImagePopup.addTo(map);  
+        ahmetPoemPopup.addTo(map);
+        showAhmetLines();
+      });
+    }, { once: true });
+  }
+});
+
+// popup kapanınca ses durdur
+yuruyenPopup.on('close', () => {
+  yuruyenAudio.pause();
+  yuruyenAudio.currentTime = 0;
+});
+
+// Marker tıklanınca ses başlat
+yuruyenEl.addEventListener('click', () => {
+  yuruyenAudio.play().catch(e=>console.log("Yürüyen adam sesi engellendi:", e));
+});
+
+// Popup’u marker ile bağla
+yuruyenMarker.setPopup(yuruyenPopup);
+
+
+// --- AHMET KUTSİ ---
+const ahmetEl = document.createElement('div');
+ahmetEl.className = 'img-marker';
+ahmetEl.style.backgroundImage = "url('https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/Ahmet%20Kutsi.png')";
+
+const ahmetMarker = new maplibregl.Marker({ element: ahmetEl })
+  .setLngLat([29.02664972490517, 40.98826133293559]);
+
+// --- Görsel popup (sağda) ---
+const ahmetImagePopup = new maplibregl.Popup({ 
+  closeButton:true, 
+  closeOnClick:false, 
+  className:"safiye-popup",
+  anchor:"right", 
+  offset:[-50,75]
+})
+.setLngLat([29.02664972490517, 40.98826133293559])
+.setHTML(`
+  <div style="text-align:center;">
+    <img class="safiye-img" 
+         src="https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/Kad%C4%B1k%C3%B6y%20Ahmet%20Kutsi%20Kolaj.png">
+  </div>
+`);
+
+// --- Şiir popup (solda) ---
+const ahmetPoemPopup = new maplibregl.Popup({ 
+  closeButton:true, 
+  closeOnClick:false, 
+  className:"safiye-popup",
+  anchor:"left", 
+  offset:[100,75]
+})
+.setLngLat([29.02664972490517, 40.98826133293559])
+.setHTML(`
+  <div style="
+    font-family:Tahoma;
+    font-size:14px;
+    color:#000;
+    background:rgba(255,255,255,0.95);
+    padding:14px 18px;
+    border-radius:8px;
+    line-height:1.6;
+    max-width:400px;    /* ✅ genişletildi */
+    min-width:250px;    /* ✅ sabit bir alt genişlik */
+    text-align:left;
+    white-space:pre-line;  /* satır sonlarını koru */
+    box-shadow:0 2px 6px rgba(0,0,0,0.15);
+  ">
+<b>NERDESİN</b>
+
+Geceleyin bir ses böler uykumu,
+İçim ürpermeyle dolar:-Nerdesin?
+Arıyorum yıllar var ki ben onu,
+Âşıkıyım beni çağıran bu sesin.
+
+Gün olur sürüyüp beni derbeder,
+Bu ses rüzgârlara karışır gider.
+Gün olur peşimden yürür beraber,
+Ansızın haykırır bana:-Nerdesin?
+
+Bütün sevgileri atıp içimden,
+Varlığımı yalnız ona verdim ben.
+Elverir ki bir gün bana, derinden,
+Ta derinden, bir gün bana "Gel" desin.
+
+                <b>Ahmet Kutsi TECER</b>
+  </div>
+`);
+
+// --- AHMET ÇİZGİLERİ (başta kapalı) ---
+var ahmetLine1 = {
+  "type":"Feature","geometry":{"type":"LineString","coordinates":[
+    [29.02664972490517, 40.98826133293559],   // Ahmet marker konumu
+    [28.2491588014121, 41.07089027559917]     // Hedef 1
+  ]}
+};
+var ahmetLine2 = {
+  "type":"Feature","geometry":{"type":"LineString","coordinates":[
+    [29.02664972490517, 40.98826133293559],   // Ahmet marker konumu
+    [29.256978059256213, 40.87145272101685]   // Hedef 2
+  ]}
+};
+var ahmetLine3 = {
+  "type":"Feature","geometry":{"type":"LineString","coordinates":[
+    [29.02664972490517, 40.98826133293559],   // Ahmet marker konumu
+    [29.06888706982968,41.0275636278613]
+  ]}
+};
+
+map.addSource('ahmet-line1', { type:'geojson', data: turf.bezierSpline(ahmetLine1) });
+map.addLayer({
+  'id':'ahmet-line1-layer','type':'line','source':'ahmet-line1',
+  'layout':{ 'visibility':'none' },
+  'paint':{ 'line-color':'#FFAA66','line-width':2,'line-dasharray':[2,2]}
+});
+map.addSource('ahmet-line2', { type:'geojson', data: turf.bezierSpline(ahmetLine2) });
+map.addLayer({
+  'id':'ahmet-line2-layer','type':'line','source':'ahmet-line2',
+  'layout':{ 'visibility':'none' },
+  'paint':{ 'line-color':'#FFAA66','line-width':2,'line-dasharray':[2,2]}
+});
+map.addSource('ahmet-line3', { type:'geojson', data: turf.bezierSpline(ahmetLine3) });
+map.addLayer({
+  'id':'ahmet-line3-layer','type':'line','source':'ahmet-line3',
+  'layout':{ 'visibility':'none' },
+  'paint':{ 'line-color':'#FFAA66','line-width':2,'line-dasharray':[2,2]}
+});
+
+function showAhmetLines() {
+  map.setLayoutProperty('ahmet-line1-layer','visibility','visible');
+  map.setLayoutProperty('ahmet-line2-layer','visibility','visible');
+  map.setLayoutProperty('ahmet-line3-layer','visibility','visible');
+}
+
+function hideAhmetLines() {
+  map.setLayoutProperty('ahmet-line1-layer','visibility','none');
+  map.setLayoutProperty('ahmet-line2-layer','visibility','none');
+  map.setLayoutProperty('ahmet-line3-layer','visibility','none');
+}
+
+
+// --- Ahmet Kutsi Tecer etiketi ayrı marker ---
+const ahmetLabelEl = document.createElement('div');
+ahmetLabelEl.innerText = "Ahmet Kutsi Tecer'in Evi";
+ahmetLabelEl.style.fontFamily = "Tahoma";
+ahmetLabelEl.style.fontSize = "11px";
+ahmetLabelEl.style.fontWeight = "regular";
+ahmetLabelEl.style.color = "#000";
+ahmetLabelEl.style.backgroundColor = "rgba(255, 255, 255, 0.5)";
+ahmetLabelEl.style.padding = "2px 6px";
+ahmetLabelEl.style.borderRadius = "4px";
+ahmetLabelEl.style.whiteSpace = "nowrap";
+
+const ahmetLabelMarker = new maplibregl.Marker({
+    element: ahmetLabelEl,
+    anchor: 'bottom',
+    offset: [0, -40]
+})
+.setLngLat([29.02664972490517, 40.98826133293559]);
+
+
+// --- Toggle mantığı (Doğan Nadi gibi) ---
+let isAhmetVisible = false;
+
+ahmetEl.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (!isAhmetVisible) {
+    closeAllPopups();
+    ahmetImagePopup.addTo(map);
+    ahmetPoemPopup.addTo(map);
+    showAhmetLines();   // 👈 çizgiler görünsün
+    isAhmetVisible = true;
+  }
+});
+
+
+// Haritanın boş yerine tıklanınca kapat
+map.on("click", (e) => {
+  if (isAhmetVisible) {
+    const t = e.originalEvent.target;
+
+    // 👇 Ahmet popup kapanmaması gereken yerler
+    const clickedInsideAhmetYuzer = t.closest && t.closest(".ahmet-yuzer-marker");
+    const clickedInsideHeart2 = t.closest && t.closest(".heart2-marker");
+    const clickedAhmetMarker = (t === ahmetEl);
+
+    // Eğer bu üçünden biri DEĞİLSE → popup kapanır
+    if (!clickedInsideAhmetYuzer && !clickedInsideHeart2 && !clickedAhmetMarker) {
+      ahmetImagePopup.remove();
+      ahmetPoemPopup.remove();
+      hideAhmetLines();
+      isAhmetVisible = false;
+    }
+  }
+});
+
+
+
+// --- MODA İSKELESİ ETİKETİ ---
+const modaLabelEl = document.createElement('div');
+modaLabelEl.innerText = "Moda İskelesi";
+modaLabelEl.style.fontFamily = "Tahoma";
+modaLabelEl.style.fontSize = "11px";
+modaLabelEl.style.fontWeight = "regular";
+modaLabelEl.style.color = "#000";
+modaLabelEl.style.backgroundColor = "rgba(255, 255, 255, 0.5)";
+modaLabelEl.style.padding = "2px 6px";
+modaLabelEl.style.borderRadius = "4px";
+modaLabelEl.style.whiteSpace = "nowrap";
+
+const modaLabelMarker = new maplibregl.Marker({
+    element: modaLabelEl,
+    anchor: 'bottom',
+    offset: [20, -10]   // markerın üstünde dursun
+})
+.setLngLat([29.025090409022088, 40.9789711605181]);
+
+
+// ======================
+// 679 Toggle Mantığı
+// ======================
+const toggle679Items = [
+  { 
+    show: ()=> {
+      map.setLayoutProperty('route-679-line','visibility','visible');
+      map.setLayoutProperty('route-679-line-thin','visibility','none');
+      ferryMarker679.addTo(map); ferryAnimate679 = true;
+      falihMarker.addTo(map); falihLabelMarker.addTo(map);   
+      ahmetMarker.addTo(map); ahmetLabelMarker.addTo(map);   
+      yuruyenMarker.addTo(map);  yuruyenAnimate = true;
+      startMarker679.addTo(map);
+      modaLabelMarker.addTo(map);   // ✅ Moda İskelesi etiketi eklendi
+    },
+    hide: ()=> {
+      map.setLayoutProperty('route-679-line','visibility','none');
+      map.setLayoutProperty('route-679-line-thin','visibility','visible');
+      ferryMarker679.remove(); ferryAnimate679 = false;
+      falihMarker.remove(); falihLabelMarker.remove();      
+      ahmetMarker.remove(); ahmetLabelMarker.remove();      
+      yuruyenMarker.remove();  yuruyenAnimate = false;
+      startMarker679.remove();
+      modaLabelMarker.remove();     // ✅ Kapatınca gizlenecek
+    }
+  }
+];
+
+
+
+let is679Visible = false;
+document.getElementById('toggle679Btn').addEventListener('click', function(){
+  if(!is679Visible){
+    toggle679Items.forEach(it=>it.show());
+    this.textContent = "Hide 679";
+    is679Visible = true;
+
+    // rota + markerları kapsayan bounds
+    var bounds = new maplibregl.LngLatBounds();
+
+    // rota (smoothRoute679 içindeki tüm noktaları ekliyoruz)
+    turf.coordAll(smoothRoute679).forEach(coord => bounds.extend(coord));
+
+    // markerlar (otomatik koordinatlar)
+    bounds.extend(falihMarker.getLngLat().toArray());
+    bounds.extend(ahmetMarker.getLngLat().toArray());
+    bounds.extend(ferryStart679);
+    bounds.extend(ferryEnd679);
+
+    // haritayı bu alana uydur
+    map.fitBounds(bounds, { padding: 80, duration: 1000 });
+
+  } else {
+    toggle679Items.forEach(it=>it.hide());
+    this.textContent = "679";
+    is679Visible = false;
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  // ======================
+// 683 ROTA ve NOKTALAR
+// ======================
+
+var route683 = {
+  "type": "Feature",
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [29.043264848951356, 41.07792541864808],
+[29.05885790819227, 41.08159839630275],
+[29.065424885372725, 41.100118558865866],
+[29.05885790819227, 41.08159839630275],
+[29.027818485955606, 41.04204622943152],
+[28.98534870727061, 41.03114753324831]
+
+    ]
+  }
+};
+
+var smoothRoute683 = turf.bezierSpline(route683);
+map.addSource('route-683', { type:'geojson', data: smoothRoute683 });
+
+// Kalın çizgi (toggle açıkken)
+map.addLayer({
+  'id':'route-683-line',
+  'type':'line',
+  'source':'route-683',
+  'layout':{ 'visibility':'none' },
+  'paint':{ 'line-color':'#FF69B4','line-width':3,'line-dasharray':[2,2] }
+});
+
+// İnce çizgi (toggle kapalıyken)
+map.addLayer({
+  'id':'route-683-line-thin',
+  'type':'line',
+  'source':'route-683',
+  'layout':{ 'visibility':'visible' },
+  'paint':{ 'line-color':'#FF69B4','line-width':1,'line-dasharray':[2,2] }
+});
+// ======================
+// 683 Toggle Mantığı
+// ======================
+const toggle683Items = [
+  { 
+    show: ()=>{
+      map.setLayoutProperty('route-683-line','visibility','visible');
+      map.setLayoutProperty('route-683-line-thin','visibility','none');
+    },
+    hide: ()=>{
+      map.setLayoutProperty('route-683-line','visibility','none');
+      map.setLayoutProperty('route-683-line-thin','visibility','visible');
+    }
+  }
+];
+
+let is683Visible = false;
+document.getElementById('toggle683Btn').addEventListener('click', function(){
+  if(!is683Visible){
+    toggle683Items.forEach(it=>it.show());
+    this.textContent = "Hide 683";
+    is683Visible = true;
+
+    // rota görünürken haritayı fitBounds yap
+    var bounds = turf.bbox(smoothRoute683);
+    map.fitBounds(bounds, { padding:50, duration:1000 });
+
+  } else {
+    toggle683Items.forEach(it=>it.hide());
+    this.textContent = "683";
+    is683Visible = false;
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//YÜZÜLEN YER
+// --- SAFİYE YÜZEN MARKER ---
+const safiyeYuzerEl = document.createElement('div');
+safiyeYuzerEl.className = 'img-marker';
+safiyeYuzerEl.style.backgroundImage = "url('https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/safiye.png')";
+safiyeYuzerEl.style.width = "60px";
+safiyeYuzerEl.style.height = "60px";
+
+// Popup içeriği (örnek, istersen değiştirebilirsin)
+const safiyeYuzerPopup = new maplibregl.Popup({
+  closeButton: true,
+  closeOnClick: true,
+  className: "safiye-popup",
+  anchor: "top",
+  offset: [0, -20]
+})
+.setHTML(`
+  <div class="popup-bubble text-box" style="width:280px; padding:10px 14px; font-size:13px; line-height:1.4;">
+    <p><b>Safiye Ayla:</b><br>
+    Tabi denize bayılırım. Ben Boğazı çok severim. 
+    Boğazın serin sularına bayılırım fakat Şerif daha çok Florya’yı tercih ettiği için…
+    Üstadımız tabi, ben daima ona tabi olan bir insanım.
+    </p>
+  </div>
+`);
+
+const safiyeYuzerMarker = new maplibregl.Marker({ element: safiyeYuzerEl })
+  .setLngLat([28.77749832314205, 40.974159601321006]) // başlangıç konumu
+  .setPopup(safiyeYuzerPopup)
+  .addTo(map);
+
+// --- ANİMASYON ---
+const safiyeStart = [28.77749832314205, 40.974159601321006];
+const safiyeEnd   = [28.800269947730765, 40.96121520616783];
+
+let safiyeProgress = 0;
+let safiyeDirection = 1;  // 1 ileri, -1 geri
+const safiyeSpeed = 0.0015; // hız
+
+function animateSafiyeYuzer() {
+  safiyeProgress += safiyeSpeed * safiyeDirection;
+
+  if (safiyeProgress >= 1) {
+    safiyeProgress = 1;
+    safiyeDirection = -1; // geri dön
+  } else if (safiyeProgress <= 0) {
+    safiyeProgress = 0;
+    safiyeDirection = 1; // ileri dön
+  }
+
+  const lng = safiyeStart[0] + (safiyeEnd[0] - safiyeStart[0]) * safiyeProgress;
+  const lat = safiyeStart[1] + (safiyeEnd[1] - safiyeStart[1]) * safiyeProgress;
+  safiyeYuzerMarker.setLngLat([lng, lat]);
+
+  requestAnimationFrame(animateSafiyeYuzer);
+}
+animateSafiyeYuzer();
+
+
+// --- FALİH YÜZEN MARKER ---
+const falihYuzerEl = document.createElement('div');
+falihYuzerEl.id = "falihYuzerMarker";   // 👈 EKLEDİK
+falihYuzerEl.className = 'img-marker';
+falihYuzerEl.style.backgroundImage = "url('https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/falih%20y%C3%BCzen.png')";
+falihYuzerEl.style.width = "60px";
+falihYuzerEl.style.height = "60px";
+
+// Popup
+const falihYuzerPopup = new maplibregl.Popup({
+  closeButton: true,
+  closeOnClick: false,                  
+  className: "safiye-popup falihyuz-pop", 
+  anchor: "top",
+  offset: [0, -20]
+})
+.setHTML(`
+  <div class="popup-bubble text-box" style="width:320px; padding:12px 16px; font-size:13px; line-height:1.4;">
+    <p><b>Falih Rıfkı Atay:</b><br>
+    İstanbul’un yakın kumsallarını bir doğru kanalizasyon sistemi aramamak ve bulmamak yüzünden kirlettik. 
+    Haliç de bile denize girmek gerekirken Boğazda bile, Kalamış kıyılarında Moda’da girmek tehlikeli. 
+    İstanbul ve Rumeli yakasında bence İstanbul’un Anadolu ve Rumeli yakasında Karadeniz Plajlarını açmak lazım. 
+    Pek dar yasak bölge anlayışımızı bırakarak Boğaz’ın Rumeli ve Anadolu yakasındaki yolları, 
+    Kilyos ve daha çok ötelerine, Irva, Şile ve daha çok ötelerine yolu uzatmalıyız. 
+    Her iki yakanın plajları şimdiden karmaşık ve çok virajlıdır.
+    </p>
+  </div>
+`);
+
+const falihYuzerMarker = new maplibregl.Marker({ element: falihYuzerEl })
+  .setLngLat([28.98177736884738, 41.25391086972436]) // başlangıç
+  .setPopup(falihYuzerPopup)
+  .addTo(map);
+
+// --- ANİMASYON ETAPLARI ---
+const falihStages = [
+  { 
+    type: "move", 
+    start: [28.98177736884738, 41.25391086972436], 
+    end:   [29.035987799071872, 41.255131250388686] 
+  },
+  { 
+    type: "teleport", 
+    point: [29.56335358435834, 41.175621877764584] 
+  },
+  { 
+    type: "move", 
+    start: [29.56335358435834, 41.175621877764584], 
+    end:   [29.647581430784328, 41.16952860609379] 
+  }
+];
+
+let falihStageIndex = 0;
+let falihProgress = 0;
+const falihSpeed = 0.001; // hız
+
+function animateFalihYuzer() {
+  const stage = falihStages[falihStageIndex];
+
+  if (stage.type === "move") {
+    falihProgress += falihSpeed;
+    if (falihProgress >= 1) {
+      falihProgress = 0;
+      falihStageIndex++;
+
+      // teleport aşaması varsa
+      if (falihStageIndex < falihStages.length && falihStages[falihStageIndex].type === "teleport") {
+        const tp = falihStages[falihStageIndex].point;
+        falihYuzerMarker.setLngLat(tp);
+        falihStageIndex++; 
+      }
+
+      // son aşama bittiyse başa dön
+      if (falihStageIndex >= falihStages.length) {
+        falihStageIndex = 0;
+      }
+    }
+
+    const lng = stage.start[0] + (stage.end[0] - stage.start[0]) * falihProgress;
+    const lat = stage.start[1] + (stage.end[1] - stage.start[1]) * falihProgress;
+    falihYuzerMarker.setLngLat([lng, lat]);
+  }
+
+  requestAnimationFrame(animateFalihYuzer);
+}
+animateFalihYuzer();
+
+
+
+// --- AHMET KUTSİ YÜZEN MARKER ---
+const ahmetYuzerEl = document.createElement('div');
+ahmetYuzerEl.className = 'img-marker ahmet-yuzer-marker';
+ahmetYuzerEl.style.backgroundImage = "url('https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/ahmet%20kutsi%20y%C3%BCzen.png')";
+ahmetYuzerEl.style.width = "60px";
+ahmetYuzerEl.style.height = "60px";
+
+// Popup (örnek metin)
+const ahmetYuzerPopup = new maplibregl.Popup({
+  closeButton: true,
+  closeOnClick: true,
+  className: "safiye-popup",
+  anchor: "top",
+  offset: [0, -20]
+})
+.setHTML(`
+  <div class="popup-bubble text-box" style="width:280px; padding:10px 14px; font-size:13px; line-height:1.4;">
+    <p><b>Ahmet Kutsi Tecer:</b><br>
+    Vallahi yaz günler elimde olsa yarı sahilde yarı kırda geçirmek isterim.Mesela sabahtan denize girmek için Boğaza hoş ben Silivri yahut Pendik taraflarında ki plajları tercih ederim oralara gitmeyi isterim öğleden sonrayı da ya Çamlıca’da ya Boğaza hakim tepelerde hatta hatta Alemdağ’da veya Belgrad ormanlar gitmeye, Dinlenme evlerinde geçirmek isterim
+    </p>
+  </div>
+`);
+
+const ahmetYuzerMarker = new maplibregl.Marker({ element: ahmetYuzerEl })
+  .setLngLat([28.223387253413094, 41.06885183872345]) // başlangıç
+  .setPopup(ahmetYuzerPopup)
+  .addTo(map);
+
+// --- ANİMASYON ETAPLARI ---
+// 1. etap: [başlangıç → orta1]
+// TELEPORT: [orta2]
+// 2. etap: [orta2 → son]
+
+const ahmetStages = [
+  { 
+    type: "move", 
+    start: [28.276678539009506, 41.0596690232888], 
+    end:   [28.223387253413094, 41.06885183872345] 
+  },
+  { 
+    type: "teleport", 
+    point: [29.21405449532688, 40.87534980218602] 
+  },
+  { 
+    type: "move", 
+    start: [29.21405449532688, 40.87534980218602], 
+    end:   [29.260688241290588, 40.85134299083723] 
+  }
+];
+
+let ahmetStageIndex = 0;
+let ahmetProgress = 0;
+const ahmetSpeed = 0.002; // hız
+
+function animateAhmetYuzer() {
+  const stage = ahmetStages[ahmetStageIndex];
+
+  if (stage.type === "move") {
+    ahmetProgress += ahmetSpeed;
+    if (ahmetProgress >= 1) {
+      ahmetProgress = 0;
+      ahmetStageIndex++;
+
+      // sonraki etap teleport ise hemen atla
+      if (ahmetStageIndex < ahmetStages.length && ahmetStages[ahmetStageIndex].type === "teleport") {
+        const tp = ahmetStages[ahmetStageIndex].point;
+        ahmetYuzerMarker.setLngLat(tp);
+        ahmetStageIndex++; // teleport sonrası hemen bir sonraki aşamaya geç
+      }
+
+      // eğer son etabı bitirdiysek başa dön
+      if (ahmetStageIndex >= ahmetStages.length) {
+        ahmetStageIndex = 0;
+      }
+    }
+
+    const lng = stage.start[0] + (stage.end[0] - stage.start[0]) * ahmetProgress;
+    const lat = stage.start[1] + (stage.end[1] - stage.start[1]) * ahmetProgress;
+    ahmetYuzerMarker.setLngLat([lng, lat]);
+
+  }
+
+  requestAnimationFrame(animateAhmetYuzer);
+}
+animateAhmetYuzer();
+
+
+  
+
+
+
+
+
+// --- ❤️ Kalp marker wrapper ---
+const heartWrapper = document.createElement('div');
+heartWrapper.id = 'heart1';           // 👈 eklendi
+heartWrapper.style.width = "30px";
+heartWrapper.style.height = "30px";
+heartWrapper.style.cursor = "pointer";
+
+
+const heartEl = document.createElement('div');
+heartEl.style.width = "100%";
+heartEl.style.height = "100%";
+heartEl.style.backgroundImage = "url('https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/hearticon.png')";
+heartEl.style.backgroundSize = "contain";
+heartEl.style.backgroundRepeat = "no-repeat";
+heartEl.style.backgroundPosition = "center";
+heartEl.style.animation = "pulse 1.2s infinite";
+
+heartWrapper.appendChild(heartEl);
+
+const style = document.createElement('style');
+style.innerHTML = `
+@keyframes pulse {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}`;
+document.head.appendChild(style);
+
+// Popup
+const heartPopup = new maplibregl.Popup({
+  closeButton: true,
+  closeOnClick: true,                 // 👈 artık boşlukta kapanır
+  className: "safiye-popup heart-pop",// 👈 ayırt etmek için
+  anchor: "top",
+  offset: [0, -20]
+}).setHTML(`
+  <div class="popup-bubble text-box" style="width:320px; padding:12px 16px; font-size:13px; line-height:1.4;">
+    <p><b>Falih Rıfkı Atay:</b><br>
+    Yakacık‘ta 1907’de, adını ben bile unuttum.
+    </p>
+  </div>
+`);
+
+// Marker
+new maplibregl.Marker({ element: heartWrapper, anchor: 'center' })
+  .setLngLat([29.234889473373695, 40.91802632606148])
+  .setPopup(heartPopup)
+  .addTo(map);
+
+
+// ❤️ KALP MARKER 2 (Ahmet Kutsi Tecer)
+const heartWrapper2 = document.createElement('div');
+heartWrapper2.className = 'heart2-marker'; 
+heartWrapper2.style.width = "30px";
+heartWrapper2.style.height = "30px";
+heartWrapper2.style.cursor = "pointer";
+
+const heartEl2 = document.createElement('div');
+heartEl2.style.width = "100%";
+heartEl2.style.height = "100%";
+heartEl2.style.backgroundImage = "url('https://raw.githubusercontent.com/eda104296-del/677-G-rseller/main/hearticon.png')";
+heartEl2.style.backgroundSize = "contain";
+heartEl2.style.backgroundRepeat = "no-repeat";
+heartEl2.style.backgroundPosition = "center";
+heartEl2.style.animation = "pulse 1.2s infinite";
+
+heartWrapper2.appendChild(heartEl2);
+
+const heartPopup2 = new maplibregl.Popup({
+  closeButton: true,
+  closeOnClick: true,
+  className: "safiye-popup",
+  anchor: "top",
+  offset: [0, -20]
+}).setHTML(`
+  <div class="popup-bubble text-box" style="width:320px; padding:12px 16px; font-size:13px; line-height:1.4;">
+    <p><b>Ahmet Kutsi Tecer:</b><br>
+    Sorunuzdan anlıyorum ki sizce insan ömründe birkaç kere aşık olmak, hele şairleri. 
+    Ben biraz bu kaidenin dışında kalıyorum. 
+    Mesela ilk gençliğimde Çamlıca eteklerine doğru küçük adımlarla süzülüp giden bir hayalin arkasından yürüdümse 
+    bilmem buna da aşk denir mi? 
+    İstanbul günün birinde ben bir İstanbul kızıyla evlendim, bütün aşklarım orada toplanıyor.
+    </p>
+  </div>
+`);
+
+new maplibregl.Marker({ element: heartWrapper2, anchor: 'center' })
+  .setLngLat([29.06846583886172, 41.02780176456826]) // ✅ senin verdiğin koordinat
+  .setPopup(heartPopup2)
+  .addTo(map);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  // --- Harita renkleri ---
+  map.setPaintProperty('water', 'fill-color', '#916DB3');
+  map.setPaintProperty('water_intermittent', 'fill-color', '#916DB3');
+  map.setPaintProperty('waterway_tunnel', 'line-color', '#916DB3');
+  map.setPaintProperty('waterway', 'line-color', '#916DB3');
+  map.setPaintProperty('waterway_intermittent', 'line-color', '#916DB3');
+  map.setPaintProperty('building', 'fill-color', '#FDE5EC');
+  map.setPaintProperty('landcover_grass', 'fill-color', '#ffe0e9');
+  map.setPaintProperty('landcover_wood', 'fill-color', '#ffe0e9');
+  map.setPaintProperty('landuse_residential', 'fill-color', '#FDE5EC');
+  map.setPaintProperty('landcover_sand', 'fill-color', '#FDE5EC');
+  map.setPaintProperty('landcover_glacier', 'fill-color', '#FDE5EC');
+  map.setPaintProperty('background', 'background-color', '#FDE5EC');
+  map.setPaintProperty('road_area_pier', 'fill-color', '#f7c7be');
+  map.setPaintProperty('road_area_bridge', 'fill-color', '#f7c7be');
+  map.setPaintProperty('road_pier', 'line-color', '#f7c7be');
+  map.setPaintProperty('road_path', 'line-color', '#FDE5EC');
+  map.setPaintProperty('road_minor', 'line-color', '#FDE5EC');
+  map.setPaintProperty('road_tunnel', 'line-color', '#f7c7be');
+  map.setPaintProperty('road_major', 'line-color', '#f7d5d5');
+  map.setPaintProperty('road_motorway', 'line-color', '#f7c7be');
+  map.setPaintProperty('bridge', 'line-color', '#f7c7be');
+  map.setPaintProperty('railway_transit_tunnel', 'line-color', '#DC2525');
+  map.setPaintProperty('railway', 'line-color', '#DC2525');
+  map.setPaintProperty('railway_transit', 'line-color', '#DC2525');
+  map.setPaintProperty('aeroway_taxiway', 'line-color', '#DC2525');
+  map.setPaintProperty('aeroway_runway', 'line-color', '#DC2525');
+  map.setPaintProperty('admin_sub', 'line-color', '#DC2525');
+  map.setPaintProperty('admin_disputed', 'line-color', '#DC2525');
+  map.setPaintProperty('admin_country', 'line-color', '#DC2525');
+
+  // Line layerlarını kapatma
+  const layers = map.getStyle().layers;
+  layers.forEach(layer => {
+    if (layer.type === 'line') {
+      if (
+        layer.id !== 'road_major' &&
+        layer.id !== 'road_motorway' &&
+        layer.id !== 'road_minor' &&
+        layer.id !== 'route-line' &&
+        layer.id !== 'route2-line' &&
+        layer.id !== 'route-hitbox' &&
+        layer.id !== 'dogan-line'&&
+        layer.id !== 'route-line-thin' &&
+        layer.id !== 'route-679-line-thin' &&
+        layer.id !== 'route-683-line-thin'&&
+        layer.id !== 'safiye-ada-layer'&&
+        layer.id !== 'safiye-ada2-layer' &&
+        layer.id !== 'falih-line1-layer' &&
+        layer.id !== 'falih-line2-layer'&&
+        layer.id !== 'falih-line3-layer' &&
+        layer.id !== 'ahmet-line1-layer'&&
+        layer.id !== 'ahmet-line2-layer'&&
+        layer.id !== 'ahmet-line3-layer'
+      ) {
+        map.setLayoutProperty(layer.id, 'visibility', 'none');
+      }
+    }
+  });
+
+  // --- Tüm yazıları gizle ---
+  map.getStyle().layers.forEach(layer => {
+    if(layer.type === 'symbol'){
+      map.setLayoutProperty(layer.id, 'visibility', 'none');
+    }
+  });
+
+  // --- İlçe isimleri ---
+  var districts = {
+    "type":"FeatureCollection",
+    "features":[
+      {"type":"Feature","properties":{"name":"Üsküdar"},"geometry":{"type":"Point","coordinates":[29.023825002292167,41.0239804485724]}},
+      {"type":"Feature","properties":{"name":"Kadıköy"},"geometry":{"type":"Point","coordinates":[29.0310483192103, 40.98598171053328]}},
+      {"type":"Feature","properties":{"name":"Göztepe"},"geometry":{"type":"Point","coordinates":[29.06154331448257,40.973793713354084]}},
+      {"type":"Feature","properties":{"name":"Erenköy"},"geometry":{"type":"Point","coordinates":[29.076157658837374,40.96811599510025]}},
+      {"type":"Feature","properties":{"name":"Beşiktaş"},"geometry":{"type":"Point","coordinates":[29.00519407729851,41.043052523902226]}},
+      {"type":"Feature","properties":{"name":"Bebek"},"geometry":{"type":"Point","coordinates":[29.045448759407552,41.079553983264546]}},
+      {"type":"Feature","properties":{"name":"Aksaray"},"geometry":{"type":"Point","coordinates":[28.948007445115252,41.00578600927495]}},
+      {"type":"Feature","properties":{"name":"Fatih"},"geometry":{"type":"Point","coordinates":[28.942207793696564,41.02012691114701]}},
+      {"type":"Feature","properties":{"name":"Kartal"},"geometry":{"type":"Point","coordinates":[29.19666453649633,40.89286964055442]}},
+      {"type":"Feature","properties":{"name":"Fenerbahçe"},"geometry":{"type":"Point","coordinates":[29.0445570447863,40.971676969510355]}},
+      {"type":"Feature","properties":{"name":"Büyükada"},"geometry":{"type":"Point","coordinates":[29.127303774959636,40.86878182295274]}},
+      {"type":"Feature","properties":{"name":"Saraçhane"},"geometry":{"type":"Point","coordinates":[28.954961250382436,41.014801311133354]}},
+      {"type":"Feature","properties":{"name":"Cihangir"},"geometry":{"type":"Point","coordinates":[28.985719808674084,41.03348685632521]}},
+      {"type":"Feature","properties":{"name":"Çamlıca"},"geometry":{"type":"Point","coordinates":[29.067886386772248,41.027511948319685]}},
+      {"type":"Feature","properties":{"name":"Florya"},"geometry":{"type":"Point","coordinates":[28.79000718359251, 40.9728144293681]}},
+      {"type":"Feature","properties":{"name":"Silivri"},"geometry":{"type":"Point","coordinates":[28.253379830553364, 41.080716702313566]}},
+      {"type":"Feature","properties":{"name":"Pendik"},"geometry":{"type":"Point","coordinates":[29.254453909360226, 40.87729562648204]}},
+      {"type":"Feature","properties":{"name":"Şile"},"geometry":{"type":"Point","coordinates":[29.612147557091212, 41.16629514072483]}},
+      {"type":"Feature","properties":{"name":"Kilyos"},"geometry":{"type":"Point","coordinates":[29.005567376351046, 41.24265571584641]}},
+    ]
+  };
+
+ map.addSource('districts', { type:'geojson', data: districts });
+map.addLayer({
+  'id':'district-labels',
+  'type':'symbol',
+  'source':'districts',
+  'layout': {
+    'text-field': ['get','name'],
+    'text-font': ['Tahoma'],
+    'text-size': [
+      'interpolate', ['linear'], ['zoom'],
+      8, 10,
+      12, 16,
+      18, 24
+    ],
+    'text-anchor': 'top',
+    'visibility': 'visible'
+  },
+  'paint': {
+    'text-color': '#85164d',                 // yazı rengi
+    'text-halo-color': 'rgba(255,255,255,0.7)', // yarı saydam beyaz kontür
+    'text-halo-width': 2,                       // kontür kalınlığı
+    'text-halo-blur': 0.5                       // kontürü biraz yumuşatma
+  },
+  'minzoom': 9
+});
+
+
+
+});
+</script>
+</body>
+</html>
